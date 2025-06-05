@@ -1,4 +1,4 @@
-from lambdas.ingestion.modules import results
+from ingestion.modules import results
 
 def handler(event, context):
     print("Iniciando a ingestão de dados...")
