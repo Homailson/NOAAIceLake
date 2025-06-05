@@ -1,5 +1,2 @@
+pyiceberg[s3fs,glue,duckdb,pyarrow]
 requests
-duckdb
-pyiceberg
-boto3
-nessie
