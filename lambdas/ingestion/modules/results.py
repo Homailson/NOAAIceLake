@@ -1,4 +1,4 @@
-from ingestion_utils.functions import print_test
-
-def results_test():
-    print_test()
+from lambdas.ingestion.modules.ingestion_utils import functions
+def get_results():
+    functions.file_requisition()
+    print("Resultados obtidos com sucesso!")
