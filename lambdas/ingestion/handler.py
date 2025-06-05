@@ -1,4 +1,4 @@
-from lambdas.ingestion.modules import stations_results, stations_metadata
+from lambdas.ingestion.modules import results, stations
 
 def handler(event, context):
     print("Iniciando a ingestão de dados...")

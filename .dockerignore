@@ -6,3 +6,4 @@ __pycache__/
 *.git
 Dockerfile
 README.md
+aws-lambda-rie
