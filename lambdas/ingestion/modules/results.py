@@ -1,4 +1,4 @@
-from lambdas.ingestion.modules.ingestion_utils import functions
+from lambdas.ingestion.modules.ingestion_utils import noaa_requests
 def get_results():
-    functions.file_requisition()
+    noaa_requests.file_requisition()
     print("Resultados obtidos com sucesso!")
