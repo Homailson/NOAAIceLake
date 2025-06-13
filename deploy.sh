@@ -3,15 +3,11 @@ set -e  # Encerra o script se qualquer comando falhar
 
 # Variáveis
 REPO_NAME="noaa-ice-lake-lambda"  # Nome do repositório no ECR
-LOCAL_IMAGE_NAME="noaa-ice-lake-lambda-image"  # Nome da imagem local construída
+LOCAL_IMAGE_NAME="$REPO_NAME-image"  # Nome da imagem local construída
 TAG="latest"
 ACCOUNT_ID="552683392050"
 REGION="us-east-1"
 ECR_URI="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO_NAME"
-FUNCTION_NAME="noaa-ice-lake-ingestion"  # Nome da função Lambda
-ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/lambda-execution-role"  # Substitua pelo ARN do seu role
-TIMEOUT=300  # Timeout em segundos
-MEMORY=1024  # Memória em MB
 
 echo "Verificando se o repositório ECR existe..."
 # Verificar se o repositório ECR existe, se não, criar
@@ -23,31 +19,22 @@ else
     
     # Limpar imagens antigas do repositório
     echo "Removendo imagens antigas do ECR..."
-    # Obter lista de imagens (exceto a mais recente)
-    IMAGE_IDS=$(aws ecr list-images --repository-name $REPO_NAME --region $REGION --query 'imageIds[?type(imageTag)!=`string`].[imageDigest]' --output text)
     
-    # Se houver imagens sem tag, removê-las
+    # Remover imagens sem tag
+    IMAGE_IDS=$(aws ecr list-images --repository-name $REPO_NAME --region $REGION --query 'imageIds[?type(imageTag)!=`string`].[imageDigest]' --output text)
     if [ ! -z "$IMAGE_IDS" ]; then
         echo "Removendo imagens sem tag..."
         aws ecr batch-delete-image --repository-name $REPO_NAME --region $REGION --image-ids $(echo "$IMAGE_IDS" | sed 's/^/imageDigest=/' | tr '\n' ' ')
     fi
     
-    # Manter apenas a imagem mais recente com a tag 'latest'
-    # Primeiro, verificamos se há mais de uma imagem com tag
-    TAGGED_IMAGES=$(aws ecr list-images --repository-name $REPO_NAME --region $REGION --filter tagStatus=TAGGED --query 'length(imageIds)' --output text)
-    
-    if [ "$TAGGED_IMAGES" -gt 1 ]; then
-        echo "Removendo imagens antigas com tag (exceto a mais recente)..."
-        # Obter todas as tags exceto 'latest'
-        OLD_TAGS=$(aws ecr list-images --repository-name $REPO_NAME --region $REGION --query 'imageIds[?imageTag!=`latest`].imageTag' --output text)
-        
-        # Remover imagens com tags antigas
-        if [ ! -z "$OLD_TAGS" ]; then
-            for tag in $OLD_TAGS; do
-                echo "Removendo imagem com tag: $tag"
-                aws ecr batch-delete-image --repository-name $REPO_NAME --region $REGION --image-ids imageTag=$tag
-            done
-        fi
+    # Remover todas as tags exceto 'latest'
+    OLD_TAGS=$(aws ecr list-images --repository-name $REPO_NAME --region $REGION --query 'imageIds[?imageTag!=`latest`].imageTag' --output text)
+    if [ ! -z "$OLD_TAGS" ]; then
+        echo "Removendo imagens com tags antigas..."
+        for tag in $OLD_TAGS; do
+            echo "Removendo imagem com tag: $tag"
+            aws ecr batch-delete-image --repository-name $REPO_NAME --region $REGION --image-ids imageTag=$tag
+        done
     fi
 fi
 
