@@ -6,7 +6,7 @@ import json
 def handler(event, context):
     print("Initializing data ingestion...")
 
-    URL_BASE = 'https://www.ncei.noaa.gov/cdo-web/api/v2/'
+    URL_BASE = 'https://www.ncei.noaa.gov/cdo-web/api/v2'
 
     #Lambda environment variables
     API_KEY = os.environ.get("nooa_api_key")
@@ -23,6 +23,7 @@ def handler(event, context):
 
     if not stations_results:
         print(f"No data for {period['start']}. Continuing to next period...")
+    
     save_stations_results(stations_results)
 
     return {

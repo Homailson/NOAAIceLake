@@ -2,7 +2,7 @@ import requests
 import math
 import time
 
-def request_with_retry(URL, headers, params, max_retries = 3, backoff_factor = 3):
+def request_with_retry(URL, headers, params=None, max_retries = 3, backoff_factor = 3):
     for attempt in range(max_retries):
         try:
             response = requests.get(URL, headers=headers, params=params)
@@ -107,3 +107,107 @@ def get_all_results(URL, API_KEY, datatypes, startdate, enddate):
     print(f"Total of {len(all_data)} results retrieved.")
     return all_data
 
+
+def reverse_geocode(lat, lon):
+    url = 'https://nominatim.openstreetmap.org/reverse'
+    params = {
+        'format': 'json',
+        'lat': lat,
+        'lon': lon,
+        'zoom': 10,
+        'addressdetails': 1
+    }
+
+    headers = {
+        'User-Agent': 'noaa-station-data-fetcher'
+    }
+
+    response = requests.get(url, params=params, headers=headers)
+    if response.status_code == 200:
+        data = response.json()
+        state = data.get('address', {}).get('state')
+        return state
+    else:
+        print(f"Erro {response.status_code}")
+        return None
+
+def get_station(BASE_URL, API_KEY, station_id):
+        url = f"{BASE_URL}/stations/{station_id}"
+        headers = {
+            'token': API_KEY
+        }
+
+        response = request_with_retry(url, headers)
+        if response is None:
+            print("Requisition fail. Leaving ...")
+            return None
+        
+        station =  response.json()
+
+        lat = station.get("latitude")
+        lon = station.get("longitude")
+
+        state = reverse_geocode(lat, lon)
+
+        States_code = {
+            "Acre": "AC",
+            "Alagoas": "AL",
+            "Amapá": "AP",
+            "Amazonas": "AM",
+            "Bahia": "BA",
+            "Ceará": "CE",
+            "Distrito Federal": "DF",
+            "Espírito Santo": "ES",
+            "Goiás": "GO",
+            "Maranhão": "MA",
+            "Mato Grosso": "MT",
+            "Mato Grosso do Sul": "MS",
+            "Minas Gerais": "MG",
+            "Pará": "PA",
+            "Paraíba": "PB",
+            "Paraná": "PR",
+            "Pernambuco": "PE",
+            "Piauí": "PI",
+            "Rio de Janeiro": "RJ",
+            "Rio Grande do Norte": "RN",
+            "Rio Grande do Sul": "RS",
+            "Rondônia": "RO",
+            "Roraima": "RR",
+            "Santa Catarina": "SC",
+            "São Paulo": "SP",
+            "Sergipe": "SE",
+            "Tocantins": "TO"
+        }
+
+
+        state_code = States_code.get(state, None)
+    
+        return {
+            "id": station.get("id"),
+            "name": station.get("name"),
+            "latitude": lat,
+            "longitude": lon,
+            "elevation": station.get("elevation"),
+            "elevation_unit": station.get("elevationUnit"),
+            "state": state_code,
+            "datacoverage": station.get("datacoverage"),
+            "mindate":station.get("mindate"),
+            "maxdate": station.get("maxdate")
+        }
+
+
+
+def get_all_stations(URL, API_KEY, stations_ids):
+    all_stations = []
+    for station_id in stations_ids:
+        station = get_station(URL, API_KEY, station_id)
+
+        if station is None:
+            print(f"No data for {station_id}. Continuing to next station...")
+            continue
+        all_stations.append(station)
+    if not all_stations:
+        print("No data retrieved. Leaving...")
+        return []
+    print(f"Total of {len(all_stations)} stations retrieved.")
+    return all_stations

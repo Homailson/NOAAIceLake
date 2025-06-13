@@ -1,3 +1,6 @@
-from lambdas.ingestion.handler import handler as ingestion_lambda
+from lambdas.ingestion.a_generate_periods import handler as generate_periods_lambda
+from lambdas.ingestion.b_get_stations_results import handler as get_stations_results_lambda
+from lambdas.ingestion.c_get_stations_ids import handler as get_stations_ids_lambda
+from lambdas.ingestion.d_get_stations_by_ids import handler as get_stations_by_ids_lambda
 from lambdas.transformation.handler import handler as transformation_lambda
 from lambdas.presentation.handler import handler as presentation_lambda

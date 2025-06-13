@@ -26,7 +26,7 @@ def save_stations_results(stations_results):
             month = date.month
             day = date.day
             
-            s3_key = f"raw/datatype={datatype}/year={year}/month={month:02}/day={day:02}/data.json"
+            s3_key = f"raw/results/datatype={datatype}/year={year}/month={month:02}/day={day:02}/data.json"
 
             content = json.dumps(results, ensure_ascii=False, indent=2)
 
