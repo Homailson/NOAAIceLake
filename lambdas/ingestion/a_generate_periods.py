@@ -11,7 +11,6 @@ def handler(event, context):
     Returns:
         Lista contendo um dicionário com datas de início e fim do mês anterior
     """
-    # Removido import json não utilizado
     
     # Usar utcnow() para consistência em diferentes fusos horários
     today = datetime.utcnow()
