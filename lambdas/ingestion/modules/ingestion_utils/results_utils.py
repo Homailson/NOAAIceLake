@@ -1,3 +1,7 @@
+from collections import defaultdict
+from datetime import datetime
+import boto3
+import json
 import requests
 import math
 import time
@@ -142,58 +146,66 @@ def get_station(BASE_URL, API_KEY, station_id):
             print("Requisition fail. Leaving ...")
             return None
         
-        station =  response.json()
+        try:
+            station = response.json()
+            
+            # Verificar se station é um dicionário
+            if not isinstance(station, dict):
+                print(f"Resposta da API não é um dicionário: {type(station)}")
+                return None
+                
+            lat = station.get("latitude")
+            lon = station.get("longitude")
 
-        lat = station.get("latitude")
-        lon = station.get("longitude")
+            state = reverse_geocode(lat, lon)
 
-        state = reverse_geocode(lat, lon)
+            States_code = {
+                "Acre": "AC",
+                "Alagoas": "AL",
+                "Amapá": "AP",
+                "Amazonas": "AM",
+                "Bahia": "BA",
+                "Ceará": "CE",
+                "Distrito Federal": "DF",
+                "Espírito Santo": "ES",
+                "Goiás": "GO",
+                "Maranhão": "MA",
+                "Mato Grosso": "MT",
+                "Mato Grosso do Sul": "MS",
+                "Minas Gerais": "MG",
+                "Pará": "PA",
+                "Paraíba": "PB",
+                "Paraná": "PR",
+                "Pernambuco": "PE",
+                "Piauí": "PI",
+                "Rio de Janeiro": "RJ",
+                "Rio Grande do Norte": "RN",
+                "Rio Grande do Sul": "RS",
+                "Rondônia": "RO",
+                "Roraima": "RR",
+                "Santa Catarina": "SC",
+                "São Paulo": "SP",
+                "Sergipe": "SE",
+                "Tocantins": "TO"
+            }
 
-        States_code = {
-            "Acre": "AC",
-            "Alagoas": "AL",
-            "Amapá": "AP",
-            "Amazonas": "AM",
-            "Bahia": "BA",
-            "Ceará": "CE",
-            "Distrito Federal": "DF",
-            "Espírito Santo": "ES",
-            "Goiás": "GO",
-            "Maranhão": "MA",
-            "Mato Grosso": "MT",
-            "Mato Grosso do Sul": "MS",
-            "Minas Gerais": "MG",
-            "Pará": "PA",
-            "Paraíba": "PB",
-            "Paraná": "PR",
-            "Pernambuco": "PE",
-            "Piauí": "PI",
-            "Rio de Janeiro": "RJ",
-            "Rio Grande do Norte": "RN",
-            "Rio Grande do Sul": "RS",
-            "Rondônia": "RO",
-            "Roraima": "RR",
-            "Santa Catarina": "SC",
-            "São Paulo": "SP",
-            "Sergipe": "SE",
-            "Tocantins": "TO"
-        }
-
-
-        state_code = States_code.get(state, None)
-    
-        return {
-            "id": station.get("id"),
-            "name": station.get("name"),
-            "latitude": lat,
-            "longitude": lon,
-            "elevation": station.get("elevation"),
-            "elevation_unit": station.get("elevationUnit"),
-            "state": state_code,
-            "datacoverage": station.get("datacoverage"),
-            "mindate":station.get("mindate"),
-            "maxdate": station.get("maxdate")
-        }
+            state_code = States_code.get(state, None)
+        
+            return {
+                "id": station.get("id"),
+                "name": station.get("name"),
+                "latitude": lat,
+                "longitude": lon,
+                "elevation": station.get("elevation"),
+                "elevation_unit": station.get("elevationUnit"),
+                "state": state_code,
+                "datacoverage": station.get("datacoverage"),
+                "mindate":station.get("mindate"),
+                "maxdate": station.get("maxdate")
+            }
+        except Exception as e:
+            print(f"Erro ao processar dados da estação: {str(e)}")
+            return None
 
 
 
@@ -211,3 +223,35 @@ def get_all_stations(URL, API_KEY, stations_ids):
         return []
     print(f"Total of {len(all_stations)} stations retrieved.")
     return all_stations
+
+def save_stations_results(stations_results):
+    organized_results = defaultdict(lambda: defaultdict(list))
+
+    for result in stations_results:
+        datatype = result['datatype']
+        date = datetime.strptime(result['date'], '%Y-%m-%dT%H:%M:%S').date()
+        year = date.year
+        month = date.month
+        day = date.day
+
+        organized_results[datatype][date].append(result)
+
+    
+    s3 = boto3.client('s3')
+    bucket_name = 'noaaicelake'
+
+    for datatype, dates in organized_results.items():
+        for date, results in dates.items():
+            year = date.year
+            month = date.month
+            day = date.day
+            
+            s3_key = f"raw/results/datatype={datatype}/year={year}/month={month:02}/day={day:02}/data.json"
+
+            content = json.dumps(results, ensure_ascii=False, indent=2)
+
+            s3.put_object(
+                Bucket=bucket_name, 
+                Key=s3_key, 
+                Body=content
+                )

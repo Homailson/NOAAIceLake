@@ -1,116 +1,70 @@
-import json
 import boto3
-from datetime import datetime, timedelta
 import os
 import logging
+from .modules.ingestion_utils.stations_utils import get_existing_stations, get_current_ids
+
 
 # Configuração de logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# Constantes configuráveis via variáveis de ambiente
+# Nome do bucket definido nas variáveis de ambiente da lambda
 BUCKET = os.environ.get('S3_BUCKET', 'noaaicelake')
-STATIONS_KEY = os.environ.get('STATIONS_KEY', 'stations_ids.json')
 
 def handler(event, context):
     """
-    Extrai IDs de estações de arquivos NOAA e atualiza a lista mestra.
+    Função Lambda para extrair e atualizar IDs de estações meteorológicas da NOAA.
+    
+    Esta função processa arquivos de resultados armazenados no S3, extrai IDs de estações
+    meteorológicas e identifica novos IDs que ainda não foram processados.
     
     Args:
-        event: Evento Lambda contendo 'period' e 'datatypes'
-        context: Contexto Lambda
+        event (dict): Evento de entrada contendo:
+            - period (dict): Período de tempo para busca com chaves 'start' e 'end' no formato 'YYYY-MM-DD'
+            - datatypes (list): Lista de tipos de dados meteorológicos a serem processados
+        context (LambdaContext): Objeto de contexto da AWS Lambda
     
     Returns:
-        Dict com status, número de IDs adicionados e total
+        dict: Resposta contendo:
+            - statusCode (int): 200 para sucesso, 500 para erro
+            - added (int): Número de novos IDs identificados (se sucesso)
+            - new_station_ids (list): Lista de novos IDs de estações para processamento
+            - period (dict): Período processado
+            - datatypes (list): Tipos de dados processados
+            - error (str): Mensagem de erro (se falha)
+    
+    Raises:
+        ValueError: Se os parâmetros obrigatórios 'period' ou 'datatypes' estiverem ausentes
     """
+
     try:
-        # Inicialização do cliente S3 dentro da função
+        logger.info("Iniciando processamento de IDs de estações")
+
         s3 = boto3.client('s3')
-        
         period = event.get('period', {})
         datatypes = event.get('datatypes', [])
         
         if not period or not datatypes:
             raise ValueError("Parâmetros 'period' e 'datatypes' são obrigatórios")
         
-        start = datetime.strptime(period['start'], "%Y-%m-%d")
-        end = datetime.strptime(period['end'], "%Y-%m-%d")
+        current_ids = get_current_ids(BUCKET, s3, period, datatypes)
+
+        # Carregamento dos IDs existentes do arquivo de metadados
+        metadata_key = "raw/stations/metadata/stations_metadata.json"
         
-        logger.info(f"Processando dados de {start.date()} até {end.date()} para tipos: {datatypes}")
+        old_ids = get_existing_stations(s3, BUCKET, metadata_key).keys()
         
-        all_new_ids = set()
+        logger.info(f"ids já existentes no arquivo de metadata: {old_ids}")
         
-        # Loop por data
-        current_day = start
-        while current_day <= end:
-            year = current_day.year
-            month = f"{current_day.month:02d}"
-            day = f"{current_day.day:02d}"
-            
-            # Para cada tipo de dado
-            for datatype in datatypes:
-                prefix = f"raw/results/datatype={datatype}/year={year}/month={month}/day={day}/"
-                
-                try:
-                    # Paginação para lidar com muitos objetos
-                    paginator = s3.get_paginator('list_objects_v2')
-                    pages = paginator.paginate(Bucket=BUCKET, Prefix=prefix)
-                    
-                    for page in pages:
-                        if 'Contents' not in page:
-                            continue
-                            
-                        for obj in page['Contents']:
-                            try:
-                                obj_data = s3.get_object(Bucket=BUCKET, Key=obj['Key'])
-                                body = json.loads(obj_data['Body'].read())
-                                
-                                # Extração de IDs de estação
-                                for record in body:
-                                    station_id = record.get('station')
-                                    if station_id:
-                                        all_new_ids.add(station_id)
-                            except Exception as e:
-                                logger.error(f"Erro ao processar objeto {obj['Key']}: {str(e)}")
-                                continue
-                except Exception as e:
-                    logger.error(f"Erro ao listar objetos com prefixo {prefix}: {str(e)}")
-                    continue
-            
-            current_day += timedelta(days=1)
+        # Cálculo dos novos IDs
+        new_ids = current_ids - old_ids
         
-        # Carregar IDs existentes
-        existing_ids = set()
-        try:
-            existing = s3.get_object(Bucket=BUCKET, Key=STATIONS_KEY)
-            existing_ids = set(json.loads(existing['Body'].read()))
-        except s3.exceptions.NoSuchKey:
-            logger.info(f"Arquivo {STATIONS_KEY} não encontrado. Criando novo arquivo.")
-        except Exception as e:
-            logger.error(f"Erro ao carregar IDs existentes: {str(e)}")
-        
-        # Atualizar com os novos IDs
-        new_ids = all_new_ids - existing_ids
-        updated_ids = list(existing_ids.union(all_new_ids))
-        
-        # Salvar IDs atualizados
-        try:
-            s3.put_object(
-                Bucket=BUCKET,
-                Key=STATIONS_KEY,
-                Body=json.dumps(updated_ids),
-                ContentType='application/json'
-            )
-            logger.info(f"Adicionados {len(new_ids)} novos IDs. Total: {len(updated_ids)}")
-        except Exception as e:
-            logger.error(f"Erro ao salvar IDs atualizados: {str(e)}")
-            raise
-        
+        logger.info(f"Encontrados {len(new_ids)} novos IDs de estações.")
+
         return {
-            'statusCode': 200,
-            'added': len(new_ids),
-            'total': len(updated_ids)
+            'new_station_ids': list(new_ids)  # Incluir os novos IDs diretamente no retorno
         }
+
     except Exception as e:
         logger.error(f"Erro não tratado: {str(e)}")
         return {

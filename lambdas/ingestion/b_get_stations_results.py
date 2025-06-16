@@ -1,32 +1,76 @@
-from .modules.ingestion_utils.noaa_requests import get_all_results
-from .modules.ingestion_utils.save_to_s3 import save_stations_results
+from .modules.ingestion_utils.results_utils import get_all_results, save_stations_results
 import os
 import json
+import logging
+
+
+# Configuração de logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# Url base da API do NOAA
+URL_BASE = 'https://www.ncei.noaa.gov/cdo-web/api/v2'
+
+# Chave da API do NOAA
+API_KEY = os.environ.get("noaa_api_key")
+
 
 def handler(event, context):
-    print("Initializing data ingestion...")
-
-    URL_BASE = 'https://www.ncei.noaa.gov/cdo-web/api/v2'
-
-    #Lambda environment variables
-    API_KEY = os.environ.get("nooa_api_key")
-    datatypes = json.loads(os.environ.get("datatypes"))  #'TMAX', 'TMIN', 'TAVG', 'PRCP'
+    """
+    Função Lambda para ingerir medições de estações meteorológicas da NOAA.
     
-    period = {
-        'start': event['start'],
-        'end': event['end']
-    }
+    Esta função obtém dados meteorológicos da API NOAA para um período específico
+    e tipos de dados definidos, e os salva no S3.
     
-    print(f"Data ingestion started for {period['start']} to {period['end']}.")
-
-    stations_results = get_all_results(URL_BASE, API_KEY, datatypes, period['start'], period['end'])
-
-    if not stations_results:
-        print(f"No data for {period['start']}. Continuing to next period...")
+    Args:
+        event (dict): Evento de entrada contendo:
+            - period (dict): Período de tempo para busca com chaves 'start' e 'end'
+        context (LambdaContext): Objeto de contexto da AWS Lambda
     
-    save_stations_results(stations_results)
+    Returns:
+        dict: Contendo os datatypes e o período processado para uso em funções subsequentes
+    
+    Raises:
+        ValueError: Se os parâmetros obrigatórios 'period' ou 'datatypes' estiverem ausentes
+    """
+    logger.info("Iniciando ingestão das medições das estações")
 
-    return {
-        'datatypes': datatypes,
-        'period': period
-    }
+    try:
+        # Tipos de dados a requisitar - obtém da variável de ambiente ou usa lista vazia como padrão
+        datatypes_str = os.environ.get("datatypes")
+        datatypes = json.loads(datatypes_str) if datatypes_str else []
+        
+        # Período a requisitar
+        # period = event.get('period', {})
+
+        period = {
+            "start": event['start'],
+            "end": event['end']
+        }
+
+        # Validação dos parâmetros obrigatórios
+        if not period or not datatypes:
+            raise ValueError("Parâmetros 'period' e 'datatypes' são obrigatórios")
+        
+        # Obtenção dos resultados das estações
+        stations_results = get_all_results(URL_BASE, API_KEY, datatypes, period['start'], period['end'])
+        
+        # Salvar resultados apenas se houver dados
+        if stations_results:
+            logger.info(f"Salvando {len(stations_results)} resultados das estações")
+            save_stations_results(stations_results)
+        else:
+            logger.info(f"Não há dados para o período de {period['start']} a {period['end']}.")
+
+        # Retorna os parâmetros para uso nas funções Lambda subsequentes
+        return {
+            'datatypes': datatypes,
+            'period': period
+        }
+
+    except ValueError as e:
+        logger.error(f"Erro de validação: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Erro durante a ingestão dos dados das estações: {str(e)}")
+        raise
