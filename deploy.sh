@@ -55,7 +55,7 @@ echo "Enviando imagem para o ECR..."
 docker push $ECR_URI:$TAG
 
 # Lista de funções Lambda que usam a mesma imagem
-LAMBDA_FUNCTIONS=("generatePeriods" "getStationsIds" "getStationsByIds" "getStationsResults")
+LAMBDA_FUNCTIONS=("generatePeriods" "getStationsIds" "getStationsByIds" "getStationsResults" "resultsTrasnformation")
 
 # Contador para funções atualizadas
 UPDATED_COUNT=0

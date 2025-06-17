@@ -93,7 +93,8 @@ def handler(event, context):
                 'new_stations_count': len(new_stations),
                 'total_stations_count': metadata['total_stations'],
                 'regions': metadata['regions'],
-                'metadata_location': f's3://{BUCKET}/{metadata_key}'
+                'metadata_location': f's3://{BUCKET}/{metadata_key}',
+                'period': event['period']
             })
         }
         
