@@ -9,11 +9,11 @@ def get_last_month_period():
     first_day_prev = last_day_prev.replace(day=1)
     
     period = {
-        "start": last_day_prev.strftime("%Y-%m-%d"),
+        "start": first_day_prev.strftime("%Y-%m-%d"),
         "end": last_day_prev.strftime("%Y-%m-%d")
     }
 
-    return period
+    return [period]
 
 def get_next_date_calculator(frequency, event):
     """Retorna a função apropriada para calcular a próxima data."""
@@ -41,7 +41,7 @@ def handler(event, context):
     Gera períodos de data com base nos parâmetros fornecidos.
     """
     # Caso padrão: mês anterior
-    if not event or ('start_date' not in event and 'end_date' not in event):
+    if not event or not (event.get('start_date') and event.get('end_date')):
         return get_last_month_period()
 
     # Caso customizado com start_date e end_date

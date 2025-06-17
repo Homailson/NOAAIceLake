@@ -1,2 +1,3 @@
-pyiceberg[s3fs,glue,duckdb,pyarrow]
+pyiceberg[s3fs,glue,pyarrow]
+duckdb==0.10.2
 requests
