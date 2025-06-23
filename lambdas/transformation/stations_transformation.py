@@ -15,7 +15,7 @@ logger.setLevel(logging.INFO)
 # Constantes
 DATABASE_NAME = "noaaicelake"
 TABLE_NAME = "stations"
-TABLE_IDENTIFIER = f"{DATABASE_NAME}.{TABLE_NAME}"
+TABLE_IDENTIFIER = f"{DATABASE_NAME}.transformed_{TABLE_NAME}"
 TABLE_LOCATION = "s3://noaaicelake/transformation/stations"
 TEMP_FILE_PATH = "/tmp/transformed_data.parquet"
 
