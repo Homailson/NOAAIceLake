@@ -3,4 +3,5 @@ from lambdas.ingestion.b_get_stations_results import handler as get_stations_res
 from lambdas.ingestion.c_get_stations_ids import handler as get_stations_ids_lambda
 from lambdas.ingestion.d_get_stations_by_ids import handler as get_stations_by_ids_lambda
 from lambdas.transformation.results_transformation import handler as results_transformation_lambda
+from lambdas.transformation.stations_transformation import handler as stations_transformation_lambda
 from lambdas.presentation.handler import handler as presentation_lambda

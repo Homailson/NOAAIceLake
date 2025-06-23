@@ -7,7 +7,8 @@ ENV HOME=/tmp
 # Configurando variáveis de ambiente para o PyIceberg
 ENV PYICEBERG_CATALOG__GLUE__TYPE=glue
 ENV PYICEBERG_CATALOG__GLUE__URI=https://glue.us-east-1.amazonaws.com
-ENV PYICEBERG_CATALOG__GLUE__WAREHOUSE=s3://noaaicelake/transformation/
+ENV PYICEBERG_CATALOG__GLUE__WAREHOUSE=s3://noaaicelake
+
 
 # Diretório de trabalho do container
 WORKDIR /var/task

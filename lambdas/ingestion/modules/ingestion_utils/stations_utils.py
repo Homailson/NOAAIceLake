@@ -146,10 +146,23 @@ def organize_and_save_stations(s3_client, bucket, all_stations, base_path, curre
     saved_files = []
     for region, stations in stations_by_region.items():
         region_key = f"{base_path}/region={region}/stations_{current_date}.json"
+        new_content = json.dumps(stations)
+        
+        # Verificar se arquivo já existe com mesmo conteúdo
+        try:
+            existing_obj = s3_client.get_object(Bucket=bucket, Key=region_key)
+            existing_content = existing_obj['Body'].read().decode('utf-8')
+            if existing_content == new_content:
+                logger.info(f"Arquivo {region_key} já existe com mesmo conteúdo, pulando gravação")
+                saved_files.append(region_key)
+                continue
+        except s3_client.exceptions.NoSuchKey:
+            pass
+        
         s3_client.put_object(
             Bucket=bucket,
             Key=region_key,
-            Body=json.dumps(stations),
+            Body=new_content,
             ContentType='application/json'
         )
         saved_files.append(region_key)

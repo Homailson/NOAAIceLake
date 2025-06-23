@@ -42,14 +42,9 @@ def handler(event, context):
     metadata_key = f"{base_path}/metadata/stations_metadata.json"
     
     try:
-
-        new_station_ids = set()
+        new_stations = []
+        new_station_ids = set(event.get('new_station_ids', []))
         
-        if isinstance(event, list):
-            for item in event:
-                if isinstance(item, dict) and 'new_station_ids' in item:
-                    new_station_ids.update(item['new_station_ids'])
-
         for s in new_station_ids:
             logger.info(f"IDs de estações novas: {s}")
 
@@ -58,6 +53,8 @@ def handler(event, context):
         if not new_station_ids:
             return {
                 'statusCode': 200,
+                'period': event.get('period', {}),
+                'new_stations': new_stations,
                 'body': json.dumps({'message': 'Nenhuma estação nova para processar'})
             }
         
@@ -73,6 +70,8 @@ def handler(event, context):
         if not new_stations:
             return {
                 'statusCode': 404,
+                'period': event.get('period', {}),
+                'new_stations': new_stations,
                 'body': json.dumps({'message': 'Nenhuma informação encontrada para as novas estações'})
             }
             
@@ -85,16 +84,18 @@ def handler(event, context):
         
         # Atualizar metadados
         metadata = update_metadata(s3, BUCKET, saved_files, stations_by_region, all_stations, metadata_key, current_date)
-        
+
         return {
             'statusCode': 200,
+            'period': event.get('period', {}),
+            'new_stations': new_stations,
             'body': json.dumps({
                 'message': f'Dados atualizados com sucesso. {len(new_stations)} novas estações adicionadas.',
                 'new_stations_count': len(new_stations),
                 'total_stations_count': metadata['total_stations'],
                 'regions': metadata['regions'],
                 'metadata_location': f's3://{BUCKET}/{metadata_key}',
-                'period': event['period']
+                
             })
         }
         

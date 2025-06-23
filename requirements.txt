@@ -1,3 +1,0 @@
-pyiceberg[s3fs,glue,pyarrow]
-duckdb==1.2.2
-requests

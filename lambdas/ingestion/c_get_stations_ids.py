@@ -62,8 +62,8 @@ def handler(event, context):
         logger.info(f"Encontrados {len(new_ids)} novos IDs de estações.")
 
         return {
-            'new_station_ids': list(new_ids),  # Incluir os novos IDs diretamente no retorno
-            'period': period
+            'period': period,
+            'new_station_ids': list(new_ids)  # Incluir os novos IDs diretamente no retorno
         }
 
     except Exception as e:

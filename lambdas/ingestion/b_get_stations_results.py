@@ -40,9 +40,7 @@ def handler(event, context):
         datatypes_str = os.environ.get("datatypes")
         datatypes = json.loads(datatypes_str) if datatypes_str else []
         
-        # Período a requisitar
-        # period = event.get('period', {})
-
+        # Período a transformar
         period = {
             "start": event['start'],
             "end": event['end']

@@ -17,7 +17,7 @@ logger.setLevel(logging.INFO)
 DATABASE_NAME = "noaaicelake"
 TABLE_NAME = "daily_measurements"
 TABLE_IDENTIFIER = f"{DATABASE_NAME}.{TABLE_NAME}"
-TABLE_LOCATION = "s3://noaaicelake/transformation/noaa.db/daily_measurements"
+TABLE_LOCATION = "s3://noaaicelake/transformation/daily_measurements"
 TEMP_FILE_PATH = "/tmp/transformed_data.parquet"
 
 
@@ -26,22 +26,23 @@ def setup_iceberg_table(catalog):
     # Definir esquema da tabela com campos identificadores (chaves primárias)
     schema = Schema(
         fields=[
-            {"id": 1, "name": "station", "type": StringType(), "required": True},
-            {"id": 2, "name": "date", "type": DateType(), "required": True},
-            {"id": 3, "name": "tmax", "type": DoubleType(), "required": False},
-            {"id": 4, "name": "tmin", "type": DoubleType(), "required": False},
-            {"id": 5, "name": "tavg", "type": DoubleType(), "required": False},
-            {"id": 6, "name": "prcp", "type": DoubleType(), "required": False}
+            {"id": 1, "name": "id", "type": StringType(), "required": True},
+            {"id": 2, "name": "station", "type": StringType(), "required": True},
+            {"id": 3, "name": "date", "type": DateType(), "required": True},
+            {"id": 4, "name": "tmax", "type": DoubleType(), "required": False},
+            {"id": 5, "name": "tmin", "type": DoubleType(), "required": False},
+            {"id": 6, "name": "tavg", "type": DoubleType(), "required": False},
+            {"id": 7, "name": "prcp", "type": DoubleType(), "required": False}
         ],
         # Definir station e date como campos identificadores (chaves primárias)
-        identifier_field_ids=[1, 2]
+        identifier_field_ids=[1]
     )
 
     # Definir particionamento
     partition_spec = PartitionSpec(
         spec=[
-            {"name": "year", "transform": "year", "source_id": 2, "field_id": 1000},
-            {"name": "month", "transform": "month", "source_id": 2, "field_id": 1001}
+            {"name": "year", "transform": "year", "source_id": 3, "field_id": 1000},
+            {"name": "month", "transform": "month", "source_id": 3, "field_id": 1001}
         ]
     )
 
@@ -89,6 +90,7 @@ def transform_data(conexao, s3_paths):
     conexao.execute("""
         CREATE OR REPLACE TABLE transformed AS 
         SELECT 
+            CAST(NULL AS VARCHAR) AS id,
             CAST(NULL AS VARCHAR) AS station, 
             CAST(NULL AS DATE) AS date, 
             CAST(NULL AS DOUBLE) AS tmax, 
@@ -105,6 +107,7 @@ def transform_data(conexao, s3_paths):
             conexao.execute(f"""
                 INSERT INTO transformed
                 SELECT
+                    CAST(CONCAT(REPLACE(station, 'GHCND:', ''), '_', strftime(CAST(date AS DATE), '%Y%m%d')) AS VARCHAR) AS id,
                     CAST(station AS VARCHAR) AS station,
                     CAST(date AS DATE) AS date,
                     MAX(CASE WHEN datatype = 'TMAX' THEN CAST(value AS DOUBLE) END) AS tmax,
@@ -123,11 +126,11 @@ def transform_data(conexao, s3_paths):
 
 
 def write_to_iceberg(conexao, catalog, count):
-    """Escreve dados transformados na tabela Iceberg."""
+    """Escreve dados transformados na tabela Iceberg usando upsert."""
     if count > 0:
         # Configurar acesso AWS para DuckDB
         conexao.execute("SET s3_region='us-east-1'")
-        
+
         # Exportar dados para arquivo temporário
         conexao.execute(f"COPY transformed TO '{TEMP_FILE_PATH}' (FORMAT PARQUET)")
         logger.info("✅ Dados exportados para arquivo temporário")
@@ -136,6 +139,7 @@ def write_to_iceberg(conexao, catalog, count):
         arrow_table = pq.read_table(TEMP_FILE_PATH)
         
         novo_schema = pa.schema([
+            pa.field('id', pa.string(), nullable=False),
             pa.field('station', pa.string(), nullable=False),
             pa.field('date', pa.date32(), nullable=False),
             pa.field('tmax', pa.float64(), nullable=True),
@@ -149,13 +153,9 @@ def write_to_iceberg(conexao, catalog, count):
         # Carregar tabela Iceberg
         table = catalog.load_table(TABLE_IDENTIFIER)
         
-        try:
-            # Usar upsert para deduplicação automática baseada nos campos identificadores
-            result = table.upsert(arrow_table)
-            logger.info(f"✅ {result.rows_inserted} registros inseridos, {result.rows_updated} atualizados na tabela Iceberg")
-        except Exception as e:
-            # Fallback para append simples em caso de erro
-            logger.warning(f"Erro no upsert: {str(e)}")
+        # Usar upsert
+        table.upsert(arrow_table)
+        logger.info(f"✅ {len(arrow_table)} registros inseridos via upsert")
         
         # Limpar arquivo temporário
         if os.path.exists(TEMP_FILE_PATH):
@@ -183,10 +183,7 @@ def handler(event, context):
         setup_iceberg_table(catalog)
         
         # Extrair datas do evento
-        period = {
-            "start": event['start'],
-            "end": event['end']
-        }
+        period = event.get('period', {})
         
         start_date = datetime.strptime(period["start"], "%Y-%m-%d")
         end_date = datetime.strptime(period["end"], "%Y-%m-%d")
@@ -209,15 +206,20 @@ def handler(event, context):
         
         logger.info(f"✅ Dados entre {start_date.date()} e {end_date.date()} processados com sucesso!")
         
+        
         return {
             "statusCode": 200,
             "body": f"Transformação concluída para o período de {start_date.date()} a {end_date.date()}.",
-            "period": {
-                "start": start_date.strftime("%Y-%m-%d"),
-                "end": end_date.strftime("%Y-%m-%d")
-            }
+            "new_stations": event["new_stations"]
         }
     
     except Exception as e:
-        logger.error(f"Erro durante a transformação: {str(e)}")
-        raise
+        logger.error(f"Erro na transformação: {str(e)}")
+        return {
+            "statusCode": 500,
+            "body": f"Erro na transformação: {str(e)}"
+        }
+
+    finally:
+        if conexao:
+            conexao.close()
