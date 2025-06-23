@@ -7,48 +7,48 @@ Pipeline completo de dados meteorológicos que coleta, transforma e apresenta da
 
 ```
 ┌─────────────────┐    ┌──────────────────────────────────────────────────────┐
-│   NOAA CDO API  │    │                    AWS CLOUD                        │
+│   NOAA CDO API  │    │                    AWS CLOUD                         │
 │  (External API) │    │                                                      │
 └─────────┬───────┘    │  ┌─────────────────────────────────────────────────┐ │
-          │            │  │              INGESTION LAYER                   │ │
+          │            │  │              INGESTION LAYER                    │ │
           │            │  │                                                 │ │
-          ▼            │  │  ┌─────────────┐  ┌─────────────┐              │ │
-┌─────────────────┐    │  │  │   Lambda    │  │   Lambda    │              │ │
-│  EventBridge    │────┼──┼──│ Generate    │──│Get Stations │              │ │
-│   (Scheduler)   │    │  │  │  Periods    │  │  Results    │              │ │
-└─────────────────┘    │  │  └─────────────┘  └─────┬───────┘              │ │
-                       │  │                         │                      │ │
-                       │  │  ┌─────────────┐        │  ┌─────────────┐     │ │
-                       │  │  │   Lambda    │◄───────┘  │   Lambda    │     │ │
-                       │  │  │Get Stations │            │Get Stations │     │ │
-                       │  │  │    IDs      │            │   by IDs    │     │ │
-                       │  │  └─────────────┘            └─────────────┘     │ │
+          ▼            │  │  ┌─────────────┐  ┌─────────────┐               │ │
+┌─────────────────┐    │  │  │   Lambda    │  │   Lambda    │               │ │
+│  EventBridge    │────┼──┼──│ Generate    │──│Get Stations │               │ │
+│   (Scheduler)   │    │  │  │  Periods    │  │  Results    │               │ │
+└─────────────────┘    │  │  └─────────────┘  └─────┬───────┘               │ │
+                       │  │                         │                       │ │
+                       │  │  ┌─────────────┐        │  ┌─────────────┐      │ │
+                       │  │  │   Lambda    │◄───────┘  │   Lambda    │      │ │
+                       │  │  │Get Stations │           │Get Stations │      │ │
+                       │  │  │    IDs      │───────────│   by IDs    │      │ │
+                       │  │  └─────────────┘           └─────────────┘      │ │
                        │  └─────────────────────────────────────────────────┘ │
                        │                          │                           │
                        │                          ▼                           │
                        │  ┌─────────────────────────────────────────────────┐ │
-                       │  │                 S3 DATA LAKE                   │ │
-                       │  │            📁 Raw Data (JSON)                  │ │
-                       │  │              Particionado                      │ │
+                       │  │               S3 DATA LAKE                      │ │
+                       │  │              Raw Data (JSON)                    │ │
+                       │  │              Particionado                       │ │
                        │  └─────────────────┬───────────────────────────────┘ │
                        │                    │                                 │
                        │                    ▼                                 │
                        │  ┌─────────────────────────────────────────────────┐ │
-                       │  │            TRANSFORMATION LAYER                │ │
+                       │  │            TRANSFORMATION LAYER                 │ │
                        │  │                                                 │ │
-                       │  │  ┌─────────────┐  ┌─────────────┐              │ │
-                       │  │  │   Lambda    │  │   Lambda    │              │ │
-                       │  │  │  Results    │  │  Stations   │              │ │
-                       │  │  │Transformation│  │Transformation│             │ │
-                       │  │  └─────────────┘  └─────────────┘              │ │
+                       │  │  ┌──────────────┐   ┌────────────────┐          │ │
+                       │  │  │   Lambda     │   │   Lambda       │          │ │
+                       │  │  │  Results     │   │  Stations      │          │ │
+                       │  │  │Transformation│   │Transformation. │          │ │
+                       │  │  └──────────────┘   └────────────────┘          │ │
                        │  └─────────────────┬───────────────────────────────┘ │
                        │                    │                                 │
                        │                    ▼                                 │
                        │  ┌─────────────────────────────────────────────────┐ │
-                       │  │              ICEBERG TABLES                    │ │
+                       │  │              ICEBERG TABLES                     │ │
                        │  │                                                 │ │
-                       │  │        🏔️ Apache Iceberg Tables                │ │
-                       │  │         (via AWS Glue Catalog)                 │ │
+                       │  │          Apache Iceberg Tables                  │ │
+                       │  │         (via AWS Glue Catalog)                  │ │
                        │  └─────────────────┬───────────────────────────────┘ │
                        │                    │                                 │
                        │                    ▼                                 │
