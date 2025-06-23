@@ -1,85 +1,261 @@
-# NOAA Ice Lake
+# NOAA Ice Lake 🌡️❄️
 
 ## Visão Geral
-Este projeto implementa um pipeline de dados para coletar, transformar e apresentar dados meteorológicos da NOAA (National Oceanic and Atmospheric Administration). O sistema utiliza uma arquitetura baseada em AWS Lambda para processar dados climáticos de estações meteorológicas, armazenando-os em um data lake no Amazon S3 usando o formato Apache Iceberg.
+Pipeline completo de dados meteorológicos que coleta, transforma e apresenta dados da NOAA (National Oceanic and Atmospheric Administration) usando uma arquitetura serverless moderna na AWS. O sistema processa dados climáticos de estações meteorológicas brasileiras e os armazena em um data lake usando Apache Iceberg para análises avançadas.
 
-## Arquitetura
-
-O pipeline é composto por três etapas principais:
-
-1. **Ingestão**: Coleta dados da API NOAA CDO (Climate Data Online)
-2. **Transformação**: Processa os dados brutos para análise
-3. **Apresentação**: Disponibiliza os dados processados para consulta
-
-## Componentes Lambda
-
-### Ingestão
-- **a_generate_periods**: Gera períodos de tempo (mês anterior) para coleta de dados
-- **b_get_stations_results**: Obtém resultados de medições das estações meteorológicas
-- **c_get_stations_ids**: Extrai e armazena IDs de estações dos resultados
-- **d_get_stations_by_ids**: Obtém informações detalhadas das estações por ID
-
-### Transformação
-- Processa os dados brutos para análise (implementação em desenvolvimento)
-
-### Apresentação
-- Disponibiliza os dados processados para consulta (implementação em desenvolvimento)
-
-## Estrutura de Dados
-
-Os dados são organizados no S3 seguindo uma estrutura particionada:
+## 🏗️ Arquitetura
 
 ```
-raw/
-  ├── results/
-  │   └── datatype={TMAX|TMIN|TAVG|PRCP}/
-  │       └── year={YYYY}/
-  │           └── month={MM}/
-  │               └── day={DD}/
-  │                   └── data.json
-  └── stations/
-      ├── metadata/
-      │   └── stations_metadata.json
-      └── region={UF}/
-          └── stations_{YYYY-MM-DD}.json
+┌─────────────────┐    ┌──────────────────────────────────────────────────────┐
+│   NOAA CDO API  │    │                    AWS CLOUD                        │
+│  (External API) │    │                                                      │
+└─────────┬───────┘    │  ┌─────────────────────────────────────────────────┐ │
+          │            │  │              INGESTION LAYER                   │ │
+          │            │  │                                                 │ │
+          ▼            │  │  ┌─────────────┐  ┌─────────────┐              │ │
+┌─────────────────┐    │  │  │   Lambda    │  │   Lambda    │              │ │
+│  EventBridge    │────┼──┼──│ Generate    │──│Get Stations │              │ │
+│   (Scheduler)   │    │  │  │  Periods    │  │  Results    │              │ │
+└─────────────────┘    │  │  └─────────────┘  └─────┬───────┘              │ │
+                       │  │                         │                      │ │
+                       │  │  ┌─────────────┐        │  ┌─────────────┐     │ │
+                       │  │  │   Lambda    │◄───────┘  │   Lambda    │     │ │
+                       │  │  │Get Stations │            │Get Stations │     │ │
+                       │  │  │    IDs      │            │   by IDs    │     │ │
+                       │  │  └─────────────┘            └─────────────┘     │ │
+                       │  └─────────────────────────────────────────────────┘ │
+                       │                          │                           │
+                       │                          ▼                           │
+                       │  ┌─────────────────────────────────────────────────┐ │
+                       │  │                 S3 DATA LAKE                   │ │
+                       │  │  📁 Raw Data (JSON) - Particionado             │ │
+                       │  └─────────────────┬───────────────────────────────┘ │
+                       │                    │                                 │
+                       │                    ▼                                 │
+                       │  ┌─────────────────────────────────────────────────┐ │
+                       │  │            TRANSFORMATION LAYER                │ │
+                       │  │  ┌─────────────┐  ┌─────────────┐              │ │
+                       │  │  │   Lambda    │  │   Lambda    │              │ │
+                       │  │  │  Results    │  │  Stations   │              │ │
+                       │  │  │Transformation│  │Transformation│             │ │
+                       │  │  └─────────────┘  └─────────────┘              │ │
+                       │  └─────────────────┬───────────────────────────────┘ │
+                       │                    │                                 │
+                       │                    ▼                                 │
+                       │  ┌─────────────────────────────────────────────────┐ │
+                       │  │              ICEBERG TABLES                    │ │
+                       │  │  🏔️ Apache Iceberg (via AWS Glue Catalog)      │ │
+                       │  └─────────────────┬───────────────────────────────┘ │
+                       │                    │                                 │
+                       │                    ▼                                 │
+                       │  ┌─────────────────────────────────────────────────┐ │
+                       │  │             PRESENTATION LAYER                  │ │
+                       │  │  ┌─────────────┐                               │ │
+                       │  │  │   Lambda    │                               │ │
+                       │  │  │Presentation │                               │ │
+                       │  │  │   (Views)   │                               │ │
+                       │  │  └─────────────┘                               │ │
+                       │  └─────────────────────────────────────────────────┘ │
+                       └──────────────────────────────────────────────────────┘
 ```
 
-## Tecnologias Utilizadas
+## 🔄 Pipeline de Dados
 
-- **Python 3.11**: Linguagem de programação principal
-- **AWS Lambda**: Execução de funções serverless
-- **Amazon S3**: Armazenamento de dados
-- **Apache Iceberg**: Formato de tabela para data lakes
-- **PyIceberg**: Cliente Python para Apache Iceberg
-- **Docker**: Containerização para implantação
+### 1. **Camada de Ingestão**
+- **generatePeriods**: Gera períodos de coleta (padrão: mês anterior)
+- **getStationsResults**: Coleta medições meteorológicas da API NOAA
+- **getStationsIds**: Extrai IDs únicos de estações dos resultados
+- **getStationsByIds**: Obtém metadados detalhados das estações
 
-## Requisitos
+### 2. **Camada de Transformação**
+- **resultsTransformation**: Converte dados brutos em tabelas Iceberg otimizadas
+- **stationsTransformation**: Processa metadados de estações para análise
 
-- Python 3.11+
-- AWS CLI configurado
-- Credenciais da API NOAA CDO
-- Bucket S3 configurado
+### 3. **Camada de Apresentação**
+- **presentation**: Cria views agregadas para consultas analíticas
 
-## Configuração
+## 📊 Estrutura de Dados
 
-O projeto utiliza variáveis de ambiente para configuração:
+### Raw Data (S3)
+```
+s3://noaaicelake/
+├── raw/
+│   ├── results/
+│   │   └── datatype={TMAX|TMIN|TAVG|PRCP}/
+│   │       └── year={YYYY}/month={MM}/day={DD}/
+│   │           └── data.json
+│   └── stations/
+│       ├── metadata/stations_metadata.json
+│       └── region={STATE}/stations_{YYYY-MM-DD}.json
+├── transformation/
+│   ├── daily_measurements/  # Tabela Iceberg
+│   └── stations/           # Tabela Iceberg
+└── presentation/
+    ├── monthly_avg_temp/   # Views agregadas
+    └── station_summary/
+```
 
-- `nooa_api_key`: Chave de API para acesso à NOAA CDO
-- `datatypes`: Tipos de dados meteorológicos a serem coletados (TMAX, TMIN, TAVG, PRCP)
-- `S3_BUCKET`: Nome do bucket S3 para armazenamento (padrão: 'noaaicelake')
+### Tabelas Iceberg
 
-## Implantação
+**transformed_results**
+- `id` (PK): Identificador único da medição
+- `station`: ID da estação meteorológica
+- `date`: Data da medição
+- `tmax`, `tmin`, `tavg`: Temperaturas (°C)
+- `prcp`: Precipitação (mm)
+- Particionado por: `year`, `month`
 
-O projeto inclui um Dockerfile para criar uma imagem compatível com AWS Lambda:
+**transformed_stations**
+- `id` (PK): ID da estação
+- `name`: Nome da estação
+- `latitude`, `longitude`: Coordenadas
+- `elevation`: Altitude
+- `state`: Estado brasileiro
+- `datacoverage`: Cobertura de dados
+- Particionado por: `state`
 
+## 🛠️ Tecnologias
+
+- **Python 3.11**: Linguagem principal
+- **AWS Lambda**: Computação serverless
+- **Amazon S3**: Data lake storage
+- **Apache Iceberg**: Formato de tabela ACID
+- **AWS Glue Catalog**: Metastore
+- **DuckDB**: Engine de processamento
+- **PyArrow**: Manipulação de dados colunares
+- **Docker**: Containerização
+- **Amazon ECR**: Registry de containers
+
+## ⚙️ Configuração
+
+### Variáveis de Ambiente
 ```bash
-# Construir a imagem Docker
-docker build -t noaa-ice-lake .
+# API NOAA
+noaa_api_key=your_noaa_api_key
+datatypes=["TMAX","TMIN","TAVG","PRCP"]
 
-# Executar o script de implantação
+# AWS
+S3_BUCKET=noaaicelake
+BUCKET=noaaicelake
+API_KEY=your_noaa_api_key
+
+# Iceberg
+PYICEBERG_CATALOG__GLUE__TYPE=glue
+PYICEBERG_CATALOG__GLUE__URI=https://glue.us-east-1.amazonaws.com
+PYICEBERG_CATALOG__GLUE__WAREHOUSE=s3://noaaicelake
+```
+
+### Dependências
+```txt
+pyiceberg[s3fs,glue,pyarrow]
+duckdb==1.2.2
+requests
+```
+
+## 🚀 Deploy
+
+### Pré-requisitos
+- AWS CLI configurado
+- Docker instalado
+- Chave API da NOAA CDO
+- Bucket S3 criado
+
+### Implantação Automatizada
+```bash
+# Executar deploy completo
 ./deploy.sh
 ```
 
-## Licença
+O script automaticamente:
+1. Cria repositório ECR (se necessário)
+2. Constrói imagem Docker
+3. Faz push para ECR
+4. Atualiza todas as funções Lambda
+5. Limpa imagens antigas
 
-Este projeto está disponível como código aberto sob os termos da licença [MIT](https://opensource.org/licenses/MIT).
+### Funções Lambda Criadas
+- `generatePeriods`
+- `getStationsResults`
+- `getStationsIds`
+- `getStationsByIds`
+- `resultsTransformation`
+- `stationsTransformation`
+- `presentation`
+
+## 📈 Uso
+
+### Execução Manual
+```python
+# Gerar períodos
+result = generate_periods_lambda({}, {})
+
+# Coletar dados
+result = get_stations_results_lambda({
+    "start": "2024-11-01",
+    "end": "2024-11-30"
+}, {})
+```
+
+### Agendamento
+Configure EventBridge para execução automática mensal.
+
+## 🔍 Monitoramento
+
+- **CloudWatch Logs**: Logs detalhados de cada Lambda
+- **CloudWatch Metrics**: Métricas de execução
+- **S3 Metrics**: Uso de storage
+- **Glue Catalog**: Metadados das tabelas
+
+## 📋 Tipos de Dados Coletados
+
+- **TMAX**: Temperatura máxima diária (°C)
+- **TMIN**: Temperatura mínima diária (°C)
+- **TAVG**: Temperatura média diária (°C)
+- **PRCP**: Precipitação diária (mm)
+
+## 🌍 Cobertura Geográfica
+
+Foco em estações meteorológicas brasileiras com dados históricos robustos.
+
+## 🔧 Desenvolvimento
+
+### Estrutura do Projeto
+```
+NOAA_Ice_Lake/
+├── lambdas/
+│   ├── ingestion/
+│   │   ├── modules/ingestion_utils/
+│   │   ├── generate_periods.py
+│   │   ├── get_stations_results.py
+│   │   ├── get_stations_ids.py
+│   │   └── get_stations_by_ids.py
+│   ├── transformation/
+│   │   ├── results_transformation.py
+│   │   └── stations_transformation.py
+│   └── presentation/
+│       └── presentation.py
+├── app.py
+├── Dockerfile
+├── deploy.sh
+└── requirements-no-hash.txt
+```
+
+### Ambiente Local
+```bash
+# Criar ambiente virtual
+python -m venv env
+source env/bin/activate  # Linux/Mac
+# ou
+env\Scripts\activate     # Windows
+
+# Instalar dependências
+pip install -r requirements-no-hash.txt
+```
+
+## 📄 Licença
+
+Este projeto está disponível sob os termos da licença [MIT](https://opensource.org/licenses/MIT).
+
+---
+
+**Desenvolvido com ❤️ para análise de dados meteorológicos brasileiros**
