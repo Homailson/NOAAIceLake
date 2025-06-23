@@ -7,19 +7,19 @@ Pipeline completo de dados meteorológicos que coleta, transforma e apresenta da
 
 ```
 ┌─────────────────┐    ┌──────────────────────────────────────────────────────┐
-│   NOAA CDO API  │    │                    AWS CLOUD                        │
+│   NOAA CDO API  │    │                    AWS CLOUD                         │
 │  (External API) │    │                                                      │
 └─────────┬───────┘    │  ┌─────────────────────────────────────────────────┐ │
-          │            │  │              INGESTION LAYER                   │ │
+          │            │  │              INGESTION LAYER                    │ │
           │            │  │                                                 │ │
-          ▼            │  │  ┌─────────────┐  ┌─────────────┐              │ │
-┌─────────────────┐    │  │  │   Lambda    │  │   Lambda    │              │ │
-│  EventBridge    │────┼──┼──│ Generate    │──│Get Stations │              │ │
-│   (Scheduler)   │    │  │  │  Periods    │  │  Results    │              │ │
-└─────────────────┘    │  │  └─────────────┘  └─────┬───────┘              │ │
-                       │  │                         │                      │ │
-                       │  │  ┌─────────────┐        │  ┌─────────────┐     │ │
-                       │  │  │   Lambda    │◄───────┘  │   Lambda    │     │ │
+          ▼            │  │  ┌─────────────┐  ┌─────────────┐               │ │
+┌─────────────────┐    │  │  │   Lambda    │  │   Lambda    │               │ │
+│  EventBridge    │────┼──┼──│ Generate    │──│Get Stations │               │ │
+│   (Scheduler)   │    │  │  │  Periods    │  │  Results    │               │ │
+└─────────────────┘    │  │  └─────────────┘  └─────┬───────┘               │ │
+                       │  │                         │                       │ │
+                       │  │  ┌─────────────┐        │  ┌─────────────┐      │ │
+                       │  │  │   Lambda    │◄───────┘  │   Lambda    │      │ │
                        │  │  │Get Stations │            │Get Stations │     │ │
                        │  │  │    IDs      │            │   by IDs    │     │ │
                        │  │  └─────────────┘            └─────────────┘     │ │
@@ -27,34 +27,34 @@ Pipeline completo de dados meteorológicos que coleta, transforma e apresenta da
                        │                          │                           │
                        │                          ▼                           │
                        │  ┌─────────────────────────────────────────────────┐ │
-                       │  │                 S3 DATA LAKE                   │ │
-                       │  │  📁 Raw Data (JSON) - Particionado             │ │
+                       │  │                 S3 DATA LAKE                    │ │
+                       │  │  📁 Raw Data (JSON) - Particionado              │ │
                        │  └─────────────────┬───────────────────────────────┘ │
                        │                    │                                 │
                        │                    ▼                                 │
                        │  ┌─────────────────────────────────────────────────┐ │
-                       │  │            TRANSFORMATION LAYER                │ │
-                       │  │  ┌─────────────┐  ┌─────────────┐              │ │
-                       │  │  │   Lambda    │  │   Lambda    │              │ │
-                       │  │  │  Results    │  │  Stations   │              │ │
+                       │  │            TRANSFORMATION LAYER                 │ │
+                       │  │  ┌─────────────┐  ┌─────────────┐               │ │
+                       │  │  │   Lambda    │  │   Lambda    │               │ │
+                       │  │  │  Results    │  │  Stations   │               │ │
                        │  │  │Transformation│  │Transformation│             │ │
-                       │  │  └─────────────┘  └─────────────┘              │ │
+                       │  │  └─────────────┘  └─────────────┘               │ │
                        │  └─────────────────┬───────────────────────────────┘ │
                        │                    │                                 │
                        │                    ▼                                 │
                        │  ┌─────────────────────────────────────────────────┐ │
-                       │  │              ICEBERG TABLES                    │ │
-                       │  │  🏔️ Apache Iceberg (via AWS Glue Catalog)      │ │
+                       │  │              ICEBERG TABLES                     │ │
+                       │  │  🏔️ Apache Iceberg (via AWS Glue Catalog)       │
                        │  └─────────────────┬───────────────────────────────┘ │
                        │                    │                                 │
                        │                    ▼                                 │
                        │  ┌─────────────────────────────────────────────────┐ │
                        │  │             PRESENTATION LAYER                  │ │
-                       │  │  ┌─────────────┐                               │ │
-                       │  │  │   Lambda    │                               │ │
-                       │  │  │Presentation │                               │ │
-                       │  │  │   (Views)   │                               │ │
-                       │  │  └─────────────┘                               │ │
+                       │  │  ┌─────────────┐                                │ │
+                       │  │  │   Lambda    │                                │ │
+                       │  │  │Presentation │                                │ │
+                       │  │  │   (Views)   │                                │ │
+                       │  │  └─────────────┘                                │ │
                        │  └─────────────────────────────────────────────────┘ │
                        └──────────────────────────────────────────────────────┘
 ```
