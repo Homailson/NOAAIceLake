@@ -6,6 +6,9 @@ Pipeline completo de dados meteorológicos que coleta, transforma e apresenta da
 ## 🏗️ Arquitetura
 
 ![noaa_arquitetura](/noaaiceberg_arc.jpeg)
+
+## 📊 Dashboard Analítico (Power BI)
+
 ![noaa_powerbidashboard](/noaaiceberg_dash.jpeg)
 
 ## 🔄 Pipeline de Dados
