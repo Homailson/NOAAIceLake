@@ -9,7 +9,9 @@ Pipeline completo de dados meteorológicos que coleta, transforma e apresenta da
 
 ## 🔁 AWS Step Functions — State Machine Execution
 
-![aws_step_functions](/stepfunctions_graph.png)
+<p align="center">
+  <img src="stepfunctions_graph.png" alt="AWS Step Functions State Machine" width="700">
+</p>
 
 ## 📊 Dashboard Analítico (Power BI)
 
