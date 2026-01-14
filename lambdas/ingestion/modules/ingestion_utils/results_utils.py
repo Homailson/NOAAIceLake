@@ -6,26 +6,50 @@ import requests
 import math
 import time
 
-def request_with_retry(URL, headers, params=None, max_retries = 3, backoff_factor = 3):
+
+def request_with_retry(URL, headers, params=None, max_retries=5, backoff_factor=5):
     for attempt in range(max_retries):
         try:
-            response = requests.get(URL, headers=headers, params=params)
+            print("================ REQUEST DEBUG ================")
+            print(f"Attempt: {attempt+1}/{max_retries}")
+            print(f"URL: {URL}")
+            print(f"Headers: {headers}")
+            print(f"Params: {params}")
+
+            response = requests.get(
+                URL,
+                headers=headers,
+                params=params,
+                timeout=(5, 120)
+            )
+
+            print(f"Status code: {response.status_code}")
+
             if response.status_code == 200:
                 return response
+
+            print(f"Requisition error. Code: {response.status_code}")
+
+            if response.status_code in [429, 500, 502, 503, 504]:
+                wait_time = backoff_factor * (2 ** attempt)
+                print(f"Waiting {wait_time} seconds before next try...")
+                time.sleep(wait_time)
             else:
-                print(f"Requisition error. Code: {response.status_code}")
-                if response.status_code in [429, 500, 502, 503, 504]:
-                    wait_time = backoff_factor * (2 ** attempt)
-                    print(f"Waiting {wait_time} seconds before next try...")
-                    time.sleep(wait_time)
-                else:
-                    return None
-        except requests.exceptions.RequestException as e:
-            print(f"Requisition error: {e}")
+                return None
+
+        except requests.exceptions.ReadTimeout:
+            print("❌ Read timeout from NOAA API")
             wait_time = backoff_factor * (2 ** attempt)
             print(f"Waiting {wait_time} seconds before next try...")
             time.sleep(wait_time)
-    print("Max number of tries reached. Leaving...")
+
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Request exception: {e}")
+            wait_time = backoff_factor * (2 ** attempt)
+            print(f"Waiting {wait_time} seconds before next try...")
+            time.sleep(wait_time)
+
+    print("❌ Max number of tries reached. Leaving...")
     return None
 
 
