@@ -116,31 +116,35 @@ def get_presentation_views():
                 ORDER BY total_measurements DESC
             """
         },
-        "precpitation_by_state_by_month":
-        {
+        "precipitation_by_state_by_year": {
             "schema": Schema(
                 fields=[
                     {"id": 1, "name": "state", "type": StringType(), "required": True},
-                    {"id": 2, "name": "month", "type": TimestampType(), "required": True},
+                    {"id": 2, "name": "year", "type": TimestampType(), "required": True},
                     {"id": 3, "name": "total_precipitation", "type": DoubleType(), "required": True}
                 ]
             ),
             "arrow_schema": pa.schema([
                 pa.field('state', pa.string(), nullable=False),
-                pa.field('month', pa.timestamp('us'), nullable=False),
+                pa.field('year', pa.timestamp('us'), nullable=False),
                 pa.field('total_precipitation', pa.float64(), nullable=False)
             ]),
             "query": """
-                -- Precipitação total mensal por estado
-                -- Soma toda a chuva registrada por mês em cada estado
+                -- Precipitação total anual por estado
+                -- Soma toda a chuva registrada no ano em cada estado
                 SELECT
                     s.state,
-                    DATE_TRUNC('month', r.date) AS month,
+                    DATE_TRUNC('year', r.date) AS year,
                     COALESCE(SUM(r.prcp), 0) AS total_precipitation
                 FROM transformed_results r
-                JOIN transformed_stations s ON r.station = s.id
-                GROUP BY s.state, DATE_TRUNC('month', r.date)
-                ORDER BY s.state, month
+                JOIN transformed_stations s
+                    ON r.station = s.id
+                GROUP BY
+                    s.state,
+                    DATE_TRUNC('year', r.date)
+                ORDER BY
+                    s.state,
+                    year
             """
         },
         "central_tendence_tmin_tmax_by_month":
