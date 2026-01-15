@@ -107,9 +107,11 @@ PYICEBERG_CATALOG__GLUE__WAREHOUSE=s3://noaaicelake
 
 ### Dependências
 ```txt
-pyiceberg[s3fs,glue,pyarrow]
+pyiceberg[glue,pyarrow,s3fs]==0.10.0
+pyarrow==17.0.0
+numpy==2.2.6
 duckdb==1.2.2
-requests
+requests==2.32.5
 ```
 
 ## 🚀 Deploy
