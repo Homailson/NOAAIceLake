@@ -255,6 +255,98 @@ def get_presentation_views():
                 GROUP BY season
                 ORDER BY season
             """
+        },
+        "precipitation_anomaly_by_state_by_year": {
+            "schema": Schema(
+                fields=[
+                    {"id": 1, "name": "state", "type": StringType(), "required": True},
+                    {"id": 2, "name": "year", "type": TimestampType(), "required": True},
+                    {"id": 3, "name": "total_precipitation", "type": DoubleType(), "required": True},
+                    {"id": 4, "name": "historical_avg_precipitation", "type": DoubleType(), "required": True},
+                    {"id": 5, "name": "anomaly_mm", "type": DoubleType(), "required": True},
+                    {"id": 6, "name": "anomaly_pct", "type": DoubleType(), "required": True},
+                ]
+            ),
+            "arrow_schema": pa.schema([
+                pa.field("state", pa.string(), nullable=False),
+                pa.field("year", pa.timestamp("us"), nullable=False),
+                pa.field("total_precipitation", pa.float64(), nullable=False),
+                pa.field("historical_avg_precipitation", pa.float64(), nullable=False),
+                pa.field("anomaly_mm", pa.float64(), nullable=False),
+                pa.field("anomaly_pct", pa.float64(), nullable=False),
+            ]),
+            "query": """
+                -- Anomalia de precipitação anual por estado (mm e %)
+                WITH annual_precipitation AS (
+                    SELECT
+                        s.state,
+                        DATE_TRUNC('year', r.date) AS year,
+                        SUM(r.prcp) AS total_precipitation
+                    FROM transformed_results r
+                    JOIN transformed_stations s
+                        ON r.station = s.id
+                    GROUP BY
+                        s.state,
+                        DATE_TRUNC('year', r.date)
+                ),
+                historical_avg AS (
+                    SELECT
+                        state,
+                        AVG(total_precipitation) AS historical_avg_precipitation
+                    FROM annual_precipitation
+                    GROUP BY state
+                )
+                SELECT
+                    a.state,
+                    a.year,
+                    COALESCE(a.total_precipitation, 0) AS total_precipitation,
+                    COALESCE(h.historical_avg_precipitation, 0) AS historical_avg_precipitation,
+                    COALESCE(a.total_precipitation - h.historical_avg_precipitation, 0) AS anomaly_mm,
+                    COALESCE(
+                        ((a.total_precipitation - h.historical_avg_precipitation)
+                        / NULLIF(h.historical_avg_precipitation, 0)) * 100,
+                        0
+                    ) AS anomaly_pct
+                FROM annual_precipitation a
+                JOIN historical_avg h
+                    ON a.state = h.state
+                ORDER BY
+                    a.state,
+                    a.year
+            """
+        },
+        "rainy_days_by_state_by_year": {
+            "schema": Schema(
+                fields=[
+                    {"id": 1, "name": "state", "type": StringType(), "required": True},
+                    {"id": 2, "name": "year", "type": TimestampType(), "required": True},
+                    {"id": 3, "name": "rainy_days", "type": IntegerType(), "required": True},
+                ]
+            ),
+            "arrow_schema": pa.schema([
+                pa.field("state", pa.string(), nullable=False),
+                pa.field("year", pa.timestamp("us"), nullable=False),
+                pa.field("rainy_days", pa.int32(), nullable=False),
+            ]),
+            "query": """
+                -- Número de dias com chuva por estado por ano
+                -- Conta os dias (distintos) em que houve precipitação > 0 mm
+                SELECT
+                    s.state,
+                    DATE_TRUNC('year', r.date) AS year,
+                    COUNT(DISTINCT r.date) AS rainy_days
+                FROM transformed_results r
+                JOIN transformed_stations s
+                    ON r.station = s.id
+                WHERE
+                    r.prcp > 0
+                GROUP BY
+                    s.state,
+                    DATE_TRUNC('year', r.date)
+                ORDER BY
+                    s.state,
+                    year
+            """
         }
     }
 

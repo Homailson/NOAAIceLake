@@ -15,7 +15,9 @@ Pipeline completo de dados meteorológicos que coleta, transforma e apresenta da
 
 ## 📊 Dashboard Analítico (Power BI)
 
-![noaa_powerbidashboard](/noaaiceberg_dash.jpeg)
+![noaa_powerbidashboard](/noaaiceberg_dash.jpg)
+🔗 [Ver dashboard interativo (Power BI Public)](https://app.powerbi.com/view?r=eyJrIjoiMGUxYmY1YTItMDRkMC00NTRhLTg0MDctMDQzZjExYjZjZDY2IiwidCI6IjhjZTdhY2RkLTk0MTYtNDFiNy1iNWFjLWNhNTQzMGRmYzE0NSJ9)
+
 
 ## 🔄 Pipeline de Dados
 
