@@ -217,15 +217,22 @@ def get_presentation_views():
                 -- Classifica meses em estações brasileiras e calcula médias sazonais
                 SELECT
                     CASE
-                        WHEN EXTRACT(MONTH FROM date) IN (12, 1, 2) THEN 'Summer'
-                        WHEN EXTRACT(MONTH FROM date) IN (3, 4, 5) THEN 'Autumn'
-                        WHEN EXTRACT(MONTH FROM date) IN (6, 7, 8) THEN 'Winter'
-                        ELSE 'Spring'
+                        WHEN EXTRACT(MONTH FROM date) IN (12, 1, 2) THEN 'Verão'
+                        WHEN EXTRACT(MONTH FROM date) IN (3, 4, 5) THEN 'Outono'
+                        WHEN EXTRACT(MONTH FROM date) IN (6, 7, 8) THEN 'Inverno'
+                        ELSE 'Primavera'
                     END AS season,
                     COALESCE(AVG(tavg), 0) AS avg_temp
                 FROM transformed_results
                 GROUP BY season
-                ORDER BY season
+                ORDER BY
+                    CASE season
+                        WHEN 'Verão' THEN 1
+                        WHEN 'Outono' THEN 2
+                        WHEN 'Inverno' THEN 3
+                        WHEN 'Primavera' THEN 4
+                        ELSE 99
+                    END;
             """
         },
         "preciptation_by_season":
@@ -245,15 +252,22 @@ def get_presentation_views():
                 -- Soma toda a chuva registrada em cada estação climática brasileira
                 SELECT
                     CASE
-                        WHEN EXTRACT(MONTH FROM date) IN (12, 1, 2) THEN 'Summer'
-                        WHEN EXTRACT(MONTH FROM date) IN (3, 4, 5) THEN 'Autumn'
-                        WHEN EXTRACT(MONTH FROM date) IN (6, 7, 8) THEN 'Winter'
-                        ELSE 'Spring'
+                        WHEN EXTRACT(MONTH FROM date) IN (12, 1, 2) THEN 'Verão'
+                        WHEN EXTRACT(MONTH FROM date) IN (3, 4, 5) THEN 'Outono'
+                        WHEN EXTRACT(MONTH FROM date) IN (6, 7, 8) THEN 'Inverno'
+                        ELSE 'Primavera'
                     END AS season,
                     COALESCE(SUM(prcp), 0) AS total_precipitation
                 FROM transformed_results
                 GROUP BY season
-                ORDER BY season
+                ORDER BY
+                    CASE season
+                        WHEN 'Verão' THEN 1
+                        WHEN 'Outono' THEN 2
+                        WHEN 'Inverno' THEN 3
+                        WHEN 'Primavera' THEN 4
+                        ELSE 99
+                    END;
             """
         },
         "precipitation_anomaly_by_state_by_year": {
